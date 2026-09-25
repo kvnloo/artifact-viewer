@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Artifact viewer</title>
+  <link rel="stylesheet" href="viewer.css">
+  <script type="module" src="https://unpkg.com/@google/model-viewer@3.5.0/dist/model-viewer.min.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { mount } from "./embed.js";
+    mount("#app");
+  </script>
+</body>
+</html>

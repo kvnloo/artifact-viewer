@@ -1,0 +1,185 @@
+{
+  "schema": "kvn.artifact-viewer.catalog.v1",
+  "project": {
+    "id": "cua",
+    "title": "Cua",
+    "summary": "Script-speed computer use. A roadmap of the smallest existing surfaces that can carry the RFC, pinned to one commit.",
+    "repo": "https://github.com/kvnloo/cua",
+    "upstream": "https://github.com/trycua/cua",
+    "issue": "https://github.com/trycua/cua/issues/3963"
+  },
+  "artifacts": [
+    {
+      "id": "rfc-3963",
+      "lane": "computer-use",
+      "kind": "roadmap",
+      "embed": "page",
+      "title": "Architecture atlas",
+      "kicker": "RFC 3963 \u00b7 Architecture-first rescan",
+      "headline": "Existing owners. Fewer new layers.",
+      "status": "draft",
+      "created": "2026-09-25",
+      "commit": "a959b2a23f8099769d0d57e4b8c2c8e70bf7d036",
+      "commit_url": "https://github.com/kvnloo/cua/commit/a959b2a23f8099769d0d57e4b8c2c8e70bf7d036",
+      "summary": "Trace each requirement to the code that already owns it. This pass remapped the plan. It did not requalify acceptance or claim a measured speedup.",
+      "decision": "Prefer existing caller/helper/provider seams; hold new revision/composition semantics for their own decision and evidence.",
+      "href": "rfcs/3963/index.html",
+      "progress": {
+        "requirements_mapped": 120,
+        "acceptance_requalified": 0,
+        "packages_proposed": 12,
+        "packages_accepted": 0
+      },
+      "coverage": [
+        {
+          "label": "Owner mapped, acceptance still open",
+          "count": 101
+        },
+        {
+          "label": "Recorded decision required",
+          "count": 4
+        },
+        {
+          "label": "Existing behavior scoped in source",
+          "count": 11
+        },
+        {
+          "label": "Platform or projection gap",
+          "count": 4
+        }
+      ],
+      "steps": [
+        {
+          "id": "P01",
+          "title": "Finish measurement without another telemetry layer",
+          "status": "proposed",
+          "owner": "Caller recipe",
+          "summary": "Extend the existing runner event seam; preserve independent oracle-check time and cleanup-inclusive lifetime, residual, cold/warm and failure outcomes.",
+          "gate": "Existing timing work; no public Driver contract change intended.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P02",
+          "title": "Reuse existing completion; test exact local rules",
+          "status": "proposed",
+          "owner": "Caller recipe",
+          "summary": "Preserve the already-implemented fixture done check. Add only a separately scoped, positive typed precondition fast path; reserved abstain/reobserve remains. No duplicate provider framework.",
+          "gate": "Model/general completion integration is a follow-up; do not re-expand the provider PR by assumption.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P03",
+          "title": "Semantic-first lazy vision",
+          "status": "proposed",
+          "owner": "Caller recipe",
+          "summary": "Build semantic candidates before optionally capturing/parsing. Use visual fallback only when needed under an explicit caller policy; retain current eager path as baseline.",
+          "gate": "Caller behavior experiment; confirm scope with recipe owner. No new Driver API.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P04",
+          "title": "Native verifier: skip unused producer work",
+          "status": "proposed",
+          "owner": "ToolObservationProvider.observe",
+          "summary": "At ToolObservationProvider.observe forward the existing accessibility-tree selector when include_elements=false; retain observation-only sampling. Resolve whether elapsed_ms is predicate time or total evidence time separately.",
+          "gate": "Internal projection if supported by all actual adapters; changing elapsed_ms promise may need separate contract decision.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P05",
+          "title": "Compose existing budgets and native job lifetime",
+          "status": "proposed",
+          "owner": "WalkBudget / WalkOutcome",
+          "summary": "Distinguish setup deadline, per-node/provider deadline, verifier remaining budget and native worker lifetime. Extend existing owners only after adapter-specific evidence.",
+          "gate": "A hard public end-to-end timeout guarantee differs from current soft observation-loop semantics; decision required if promise changes.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P06",
+          "title": "Native passive evidence and truthful action outcomes",
+          "status": "proposed",
+          "owner": "VerifyStateOutput",
+          "summary": "Contribute to existing typed passive-observation/outcome work: observed content not executable token; skipped not no_change; topology advice not actuator proof.",
+          "gate": "Existing native public-contract RFC owners; do not infer approval from overlap or open status.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P07",
+          "title": "Guarded caller runs, not a new Driver scheduler",
+          "status": "proposed",
+          "owner": "Caller recipe",
+          "summary": "After recorded decision, test a two-action caller run with fresh binding/preconditions for the second action. Keep browser recipe runs separate from desktop composites.",
+          "gate": "Explicit relaxation of existing one-frame/one-action recipe rule; no implementation/promotion presumed authorized.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P08",
+          "title": "Shadow research at existing identity owners",
+          "status": "proposed",
+          "owner": "SnapshotRecord / FrameIdentity",
+          "summary": "Keep fresh observation. Attach read-only retention/churn measurements to browser/native snapshot owners; capture store stays distinct. No new authoritative revision registry.",
+          "gate": "New shadow ownership decision, not automatically included in snapshot cleanup approval.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P09",
+          "title": "Conditional observation as its own proof-gated contract",
+          "status": "proposed",
+          "owner": "SnapshotRecord / FrameIdentity",
+          "summary": "Define requested-field invalidation separately for browser, AX, UIA, AT-SPI. Existing generation checks are prerequisites, not proof of all relevant unchanged state.",
+          "gate": "Separate public-contract approval plus useful shadow evidence; fresh-read fallback remains default.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P10",
+          "title": "Reuse chooser contracts; keep calibration above Driver",
+          "status": "proposed",
+          "owner": "Caller recipe",
+          "summary": "Use existing bounded chooser and optional decision-model guard as prior art. Account for different response envelopes and candidate limits; do not wire incompatible outputs as drop-in.",
+          "gate": "Follow-up caller integration; planner handoff is optional, not a dependency for exact local rules.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P11",
+          "title": "Cancellation and transport lifetime without replay",
+          "status": "proposed",
+          "owner": "SingleFlight / SingleFlightPermit",
+          "summary": "Coordinate cancellation at existing operation, resource permit and receiver owners. Transport close is not proof a native job stopped or a cloud claim was destroyed.",
+          "gate": "Respect each existing RFC scope; no second scheduler or generic reconnect mechanism.",
+          "href": "rfcs/3963/index.html#packages"
+        },
+        {
+          "id": "P12",
+          "title": "Extraction and release earned by independent use",
+          "status": "proposed",
+          "owner": "Owning contract tests",
+          "summary": "Extract only duplicated semantics with two independent consumers. Regenerate canonical contracts and preserve original contributor authorship; keep optional dependencies optional.",
+          "gate": "Cross-component behavior requires recorded decision; two language ports of one fixture do not establish independent demand.",
+          "href": "rfcs/3963/index.html#packages"
+        }
+      ],
+      "downloads": [
+        {
+          "label": "Atlas JSON",
+          "href": "rfcs/3963/atlas.json"
+        },
+        {
+          "label": "Requirements CSV",
+          "href": "rfcs/3963/requirements-remapped.csv"
+        },
+        {
+          "label": "Syntax pilot",
+          "href": "rfcs/3963/syntax-pilot.json"
+        },
+        {
+          "label": "Hash-checked runner",
+          "href": "rfcs/3963/snapshot/libs/cua-driver/examples/jev-use/python/run.py"
+        }
+      ],
+      "gaps": [
+        "architecture-report.md",
+        "prior-graph.json"
+      ]
+    }
+  ]
+}

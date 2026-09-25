@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "kvn.artifact-viewer.catalog.v1",
+  "title": "Artifact viewer catalog",
+  "type": "object",
+  "required": ["schema", "project", "artifacts"],
+  "properties": {
+    "schema": { "const": "kvn.artifact-viewer.catalog.v1" },
+    "project": {
+      "type": "object",
+      "required": ["id", "title"],
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "summary": { "type": "string" },
+        "repo": { "type": "string" },
+        "upstream": { "type": "string" },
+        "issue": { "type": "string" }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "embed", "title", "href"],
+        "properties": {
+          "id": { "type": "string" },
+          "lane": { "type": "string" },
+          "kind": {
+            "enum": ["roadmap", "page", "still", "html", "model", "video", "data", "other"]
+          },
+          "embed": {
+            "enum": ["page", "iframe", "image", "video", "model", "none"]
+          },
+          "title": { "type": "string" },
+          "headline": { "type": "string" },
+          "summary": { "type": "string" },
+          "status": { "type": "string" },
+          "href": { "type": "string", "description": "Relative to this catalog file, or absolute URL." },
+          "commit": { "type": "string" },
+          "commit_url": { "type": "string" },
+          "decision": { "type": "string" },
+          "progress": { "type": "object" },
+          "coverage": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["label", "count"],
+              "properties": {
+                "label": { "type": "string" },
+                "count": { "type": "integer" }
+              }
+            }
+          },
+          "steps": { "type": "array" },
+          "downloads": { "type": "array" },
+          "gaps": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
