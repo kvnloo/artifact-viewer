@@ -1,32 +1,15 @@
 # Artifact viewer
 
-A page that reads a fork's GitHub issues and shows them as the roadmap.
+Developer docs for watching an AI-native repo take shape. The site is a VitePress atlas: the requirements, the fork's issues, and embeds for the original files.
 
-https://kvnloo.github.io/artifact-viewer/?project=cua
-
-`kvnloo/cua` has its own issue tracker. The page loads those issues. Issues opened before the tracker was enabled stayed on `trycua/cua`, including RFC #3963.
-
-## Import
-
-```html
-<link rel="stylesheet" href="https://kvnloo.github.io/artifact-viewer/viewer.css">
-<div id="artifacts"></div>
-<script type="module">
-  import { mount } from "https://kvnloo.github.io/artifact-viewer/embed.js";
-  mount("#artifacts", { project: "cua" });
-  // or any fork, with no catalog file:
-  // mount("#artifacts", { repo: "kvnloo/cua" });
-</script>
-```
-
-`projects.json` only names the fork. There is no copied RFC body in this repo.
-
-To add another fork, append `{ "id", "title", "repo" }` to `projects.json`.
-
-A submodule works the same way:
+https://kvnloo.github.io/artifact-viewer/
 
 ```bash
-git submodule add https://github.com/kvnloo/artifact-viewer vendor/artifact-viewer
+npm install
+npm test
+npm run dev
 ```
 
-The browser calls the public GitHub API. Unauthenticated calls share a small rate limit per IP.
+The requirements were taken from the 13 Sep 2026 CLI brief, the Telegram HITL chat, and the research note at `/workspace/hermes-jobs/artifact-viewer-research.md`. The page that lists them is `docs/guide/requirements.md`. The page that records the search is `docs/guide/search.md`.
+
+A fork imports this repo and points `<IssueBoard repo="owner/fork" />` at its own issues. See `docs/guide/import.md`.
