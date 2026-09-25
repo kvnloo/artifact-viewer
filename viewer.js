@@ -66,14 +66,15 @@ async function openRepo(state, project) {
   state.project = project;
   const meta = await github(`/repos/${project.repo}`);
   const owner = meta.owner.login;
+  const parent = meta.parent?.full_name || null;
   if (meta.has_issues) {
-    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo };
+    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo, parent };
     state.issues = await listIssues(project.repo, null);
-  } else if (meta.parent?.full_name) {
-    state.source = { repo: meta.parent.full_name, mode: "parent", owner, fork: project.repo };
-    state.issues = await listIssues(meta.parent.full_name, owner);
+  } else if (parent) {
+    state.source = { repo: parent, mode: "parent", owner, fork: project.repo, parent };
+    state.issues = await listIssues(parent, owner);
   } else {
-    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo };
+    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo, parent: null };
     state.issues = await listIssues(project.repo, null);
   }
   state.issues.sort((a, b) => score(b) - score(a) || Date.parse(b.updated_at) - Date.parse(a.updated_at));
@@ -118,7 +119,7 @@ function issueList(state) {
   aside.className = "issue-list";
   aside.append(sourceLine(state));
   if (!state.issues.length) {
-    aside.append(note("No issues yet."));
+    aside.append(emptyNote(state));
     return aside;
   }
   for (const issue of state.issues) {
@@ -141,6 +142,26 @@ function issueList(state) {
   return aside;
 }
 
+function emptyNote(state) {
+  const block = document.createElement("div");
+  const line = document.createElement("p");
+  line.className = "muted";
+  line.textContent = `No issues on ${state.source.fork} yet.`;
+  block.append(line);
+  if (state.source.parent) {
+    const more = document.createElement("p");
+    more.className = "muted";
+    const link = document.createElement("a");
+    link.href = `https://github.com/${state.source.parent}/issues?q=${encodeURIComponent(`is:issue author:${state.source.owner}`)}`;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = state.source.parent;
+    more.append(document.createTextNode("Issues opened before this tracker was enabled stayed on "), link, document.createTextNode("."));
+    block.append(more);
+  }
+  return block;
+}
+
 function sourceLine(state) {
   const line = document.createElement("p");
   line.className = "muted source-line";
@@ -156,7 +177,7 @@ function issueArticle(state) {
   const article = document.createElement("article");
   const issue = state.issues.find((item) => item.number === state.issueNumber);
   if (!issue) {
-    article.append(note("Pick an issue."));
+    article.append(state.issues.length ? note("Pick an issue.") : emptyNote(state));
     return article;
   }
   const kicker = document.createElement("div");

@@ -4,7 +4,7 @@ A page that reads a fork's GitHub issues and shows them as the roadmap.
 
 https://kvnloo.github.io/artifact-viewer/?project=cua
 
-`kvnloo/cua` does not have its own issue tracker. GitHub files that fork's issues on `trycua/cua`. The page loads the issues opened by `kvnloo` there. The script-speed computer-use RFC is #3963, and its proposed order is the strip at the top of the issue.
+`kvnloo/cua` has its own issue tracker. The page loads those issues. Issues opened before the tracker was enabled stayed on `trycua/cua`, including RFC #3963.
 
 ## Import
 
