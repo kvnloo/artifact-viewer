@@ -4,8 +4,7 @@
     {
       "id": "cua",
       "title": "Cua",
-      "summary": "RFC 3963 roadmap for script-speed computer use.",
-      "catalog": "projects/cua/catalog.json"
+      "repo": "kvnloo/cua"
     }
   ]
 }

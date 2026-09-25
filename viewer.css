@@ -29,7 +29,40 @@ nav button, .chip {
 nav button.active, .chip.on { border-color: var(--accent); color: var(--accent); }
 main { padding: 1.1rem 1.2rem 3rem; max-width: 1100px; margin: 0 auto; }
 .kicker { color: var(--accent); letter-spacing: 0.14em; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; }
-h2 { font-size: clamp(1.6rem, 3vw, 2.3rem); letter-spacing: -0.04em; line-height: 1.1; margin: 0.35rem 0 0.6rem; }
+.title { font-size: clamp(1.5rem, 3vw, 2.15rem); letter-spacing: -0.04em; line-height: 1.12; margin: 0.35rem 0 0.7rem; font-weight: 650; }
+.layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1rem; align-items: start; }
+.issue-list { position: sticky; top: 68px; max-height: calc(100vh - 84px); overflow: auto; display: flex; flex-direction: column; gap: 0.45rem; }
+.source-line { margin: 0 0 0.35rem; font-size: 0.78rem; }
+button.issue {
+  text-align: left; background: var(--card); color: inherit; border: 1px solid var(--border);
+  border-radius: 10px; padding: 0.7rem 0.75rem; font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; gap: 0.25rem;
+}
+button.issue.on { border-color: var(--accent); }
+button.issue strong { font-size: 0.86rem; line-height: 1.35; }
+.status.open { background: #2a2416; color: var(--warn); }
+.status.closed { background: #14281d; color: var(--ok); }
+.roadmap {
+  white-space: pre-wrap; background: #111; border: 1px solid var(--border); border-radius: 10px;
+  padding: 0.9rem 1rem; font: 0.82rem/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; margin: 0 0 1rem;
+}
+.prose { font-size: 0.95rem; line-height: 1.55; }
+.prose h2, .prose h3, .prose h4 { letter-spacing: -0.03em; line-height: 1.25; margin: 1.3rem 0 0.45rem; }
+.prose h2 { font-size: 1.2rem; }
+.prose h3 { font-size: 1.02rem; }
+.prose h4 { font-size: 0.95rem; }
+.prose p { margin: 0.45rem 0 0.7rem; }
+.prose a { color: var(--accent); }
+.prose code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.86em; background: #111; padding: 0.05rem 0.28rem; border-radius: 4px; }
+.prose pre { background: #111; border: 1px solid var(--border); border-radius: 8px; padding: 0.8rem 0.9rem; overflow: auto; }
+.prose pre code { background: none; padding: 0; }
+.prose ul, .prose ol { margin: 0.3rem 0 0.8rem; padding-left: 1.2rem; }
+.prose li { margin: 0.25rem 0; }
+.prose table { width: 100%; border-collapse: collapse; margin: 0.6rem 0 1rem; font-size: 0.84rem; }
+.prose th, .prose td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--border); padding: 0.45rem 0.5rem; }
+.prose th { color: var(--muted); font-size: 0.75rem; letter-spacing: 0.04em; text-transform: uppercase; }
+.prose img { max-width: 100%; border-radius: 8px; }
+.prose blockquote { margin: 0.6rem 0; padding-left: 0.8rem; border-left: 3px solid var(--accent); color: var(--muted); }
 .lead { color: var(--muted); max-width: 68ch; }
 .status {
   display: inline-block; border-radius: 4px; padding: 0.1rem 0.4rem;
@@ -88,6 +121,8 @@ h2 { font-size: clamp(1.6rem, 3vw, 2.3rem); letter-spacing: -0.04em; line-height
 .compare img, .compare video, .compare iframe, model-viewer { min-height: 280px; }
 .hidden { display: none !important; }
 @media (max-width: 800px) {
+  .layout { grid-template-columns: 1fr; }
+  .issue-list { position: static; max-height: none; }
   .metrics, .compare { grid-template-columns: 1fr 1fr; }
   .compare { grid-template-columns: 1fr; }
   main { padding: 1rem 0.8rem 2.5rem; }

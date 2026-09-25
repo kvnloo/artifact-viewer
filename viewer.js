@@ -1,4 +1,5 @@
 const VIEWER_BASE = new URL(".", import.meta.url);
+const GITHUB = "https://api.github.com";
 
 export async function mount(target, options = {}) {
   const root = typeof target === "string" ? document.querySelector(target) : target;
@@ -8,27 +9,26 @@ export async function mount(target, options = {}) {
     root,
     options,
     projects: [],
-    catalog: null,
-    catalogUrl: null,
-    artifactId: params.get("artifact"),
-    view: params.get("view") || "project",
+    project: null,
+    source: null,
+    issues: [],
+    issueNumber: Number(options.issue || params.get("issue")) || null,
   };
-  root.innerHTML = "";
-  root.append(shell());
+  root.replaceChildren(shell());
   try {
-    const direct = options.catalog || params.get("catalog");
-    if (direct) {
-      await openCatalog(state, new URL(direct, location.href));
+    const directRepo = options.repo || params.get("repo");
+    if (directRepo) {
+      await openRepo(state, { id: directRepo, title: directRepo, repo: directRepo });
     } else {
       const index = await loadJson(new URL("projects.json", VIEWER_BASE));
       state.projects = index.projects || [];
       const wanted = options.project || params.get("project");
       const chosen = state.projects.find((p) => p.id === wanted) || (state.projects.length === 1 ? state.projects[0] : null);
-      if (chosen) await openCatalog(state, new URL(chosen.catalog, VIEWER_BASE));
+      if (chosen) await openRepo(state, chosen);
       else renderChooser(state);
     }
   } catch (err) {
-    root.querySelector("main").replaceChildren(p(`Could not load the catalog (${err.message}).`));
+    state.root.querySelector("main").replaceChildren(note(err.message));
   }
   return state;
 }
@@ -38,389 +38,423 @@ function shell() {
   const title = document.createElement("h1");
   const home = document.createElement("button");
   home.type = "button";
-  home.textContent = "Artifact viewer";
   home.dataset.action = "home";
+  home.textContent = "Artifact viewer";
   title.append(home);
-  const nav = document.createElement("nav");
-  nav.innerHTML = "";
-  for (const [id, label] of [["project", "Roadmap"], ["pieces", "Pieces"], ["compare", "Compare"]]) {
-    const b = document.createElement("button");
-    b.type = "button";
-    b.dataset.view = id;
-    b.textContent = label;
-    nav.append(b);
-  }
-  header.append(title, nav);
+  header.append(title);
   const main = document.createElement("main");
   const wrap = document.createElement("div");
   wrap.append(header, main);
   wrap.addEventListener("click", (event) => {
-    const node = event.currentTarget;
-    const action = event.target.closest("[data-action], [data-view], [data-artifact]");
-    if (!action || !node.contains(action)) return;
-    const st = node.__state;
+    const st = event.currentTarget.__state;
     if (!st) return;
-    if (action.dataset.action === "home") {
+    const homeBtn = event.target.closest("[data-action='home']");
+    const issueBtn = event.target.closest("[data-issue]");
+    if (homeBtn) {
       history.replaceState(null, "", location.pathname);
       renderChooser(st);
-    } else if (action.dataset.view) {
-      st.view = action.dataset.view;
-      paint(st);
-    } else if (action.dataset.artifact) {
-      st.artifactId = action.dataset.artifact;
-      st.view = "project";
+    } else if (issueBtn) {
+      st.issueNumber = Number(issueBtn.dataset.issue);
+      remember(st);
       paint(st);
     }
   });
   return wrap;
 }
 
-async function openCatalog(state, url) {
-  state.catalogUrl = url;
-  state.catalog = await loadJson(url);
-  const projectId = state.catalog.project?.id;
-  if (projectId && !new URL(location.href).searchParams.get("catalog")) {
-    const next = new URL(location.href);
-    if (next.searchParams.get("project") !== projectId) {
-      next.searchParams.set("project", projectId);
-      history.replaceState(null, "", next);
-    }
+async function openRepo(state, project) {
+  state.project = project;
+  const meta = await github(`/repos/${project.repo}`);
+  const owner = meta.owner.login;
+  if (meta.has_issues) {
+    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo };
+    state.issues = await listIssues(project.repo, null);
+  } else if (meta.parent?.full_name) {
+    state.source = { repo: meta.parent.full_name, mode: "parent", owner, fork: project.repo };
+    state.issues = await listIssues(meta.parent.full_name, owner);
+  } else {
+    state.source = { repo: project.repo, mode: "repo", owner, fork: project.repo };
+    state.issues = await listIssues(project.repo, null);
   }
+  state.issues.sort((a, b) => score(b) - score(a) || Date.parse(b.updated_at) - Date.parse(a.updated_at));
+  if (!state.issues.some((issue) => issue.number === state.issueNumber)) {
+    const rfc = state.issues.find((issue) => /rfc/i.test(issue.title));
+    state.issueNumber = (rfc || state.issues[0])?.number || null;
+  }
+  remember(state);
   const wrap = state.root.firstElementChild;
   wrap.__state = state;
-  if (!state.artifactId) {
-    const road = (state.catalog.artifacts || []).find((a) => a.kind === "roadmap");
-    state.artifactId = road ? road.id : (state.catalog.artifacts || [])[0]?.id || null;
-  }
   paint(state);
+}
+
+function score(issue) {
+  return /rfc/i.test(issue.title) ? 1 : 0;
+}
+
+async function listIssues(repo, creator) {
+  const issues = [];
+  for (let page = 1; page <= 5; page += 1) {
+    const query = new URLSearchParams({ state: "all", per_page: "100", page: String(page), sort: "updated", direction: "desc" });
+    if (creator) query.set("creator", creator);
+    const batch = await github(`/repos/${repo}/issues?${query}`);
+    issues.push(...batch.filter((item) => !item.pull_request));
+    if (batch.length < 100) break;
+  }
+  return issues;
 }
 
 function paint(state) {
   const wrap = state.root.firstElementChild;
   wrap.__state = state;
-  for (const button of wrap.querySelectorAll("nav button")) {
-    button.classList.toggle("active", button.dataset.view === state.view);
-  }
   const main = wrap.querySelector("main");
-  main.replaceChildren();
-  if (state.view === "pieces") main.append(pieces(state));
-  else if (state.view === "compare") main.append(compare(state));
-  else main.append(roadmap(state));
+  const layout = document.createElement("div");
+  layout.className = "layout";
+  layout.append(issueList(state), issueArticle(state));
+  main.replaceChildren(layout);
+}
+
+function issueList(state) {
+  const aside = document.createElement("aside");
+  aside.className = "issue-list";
+  aside.append(sourceLine(state));
+  if (!state.issues.length) {
+    aside.append(note("No issues yet."));
+    return aside;
+  }
+  for (const issue of state.issues) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "issue";
+    button.dataset.issue = String(issue.number);
+    if (issue.number === state.issueNumber) button.classList.add("on");
+    const pill = document.createElement("span");
+    pill.className = `status ${issue.state}`;
+    pill.textContent = issue.state;
+    const title = document.createElement("strong");
+    title.textContent = issue.title;
+    const meta = document.createElement("span");
+    meta.className = "muted";
+    meta.textContent = `#${issue.number} · ${when(issue.updated_at)}`;
+    button.append(pill, title, meta);
+    aside.append(button);
+  }
+  return aside;
+}
+
+function sourceLine(state) {
+  const line = document.createElement("p");
+  line.className = "muted source-line";
+  if (state.source.mode === "parent") {
+    line.textContent = `${state.source.fork} files issues on ${state.source.repo}. Showing the ones opened by ${state.source.owner}.`;
+  } else {
+    line.textContent = `Issues on ${state.source.repo}.`;
+  }
+  return line;
+}
+
+function issueArticle(state) {
+  const article = document.createElement("article");
+  const issue = state.issues.find((item) => item.number === state.issueNumber);
+  if (!issue) {
+    article.append(note("Pick an issue."));
+    return article;
+  }
+  const kicker = document.createElement("div");
+  kicker.className = "kicker";
+  kicker.textContent = `${state.project.title} · #${issue.number}`;
+  const title = document.createElement("h2");
+  title.className = "title";
+  title.textContent = issue.title;
+  article.append(kicker, title, actions(state, issue));
+  const roadmap = roadmapBlock(issue.body || "");
+  if (roadmap) {
+    const label = document.createElement("div");
+    label.className = "kicker";
+    label.textContent = "Proposed order";
+    const pre = document.createElement("pre");
+    pre.className = "roadmap";
+    pre.textContent = roadmap;
+    article.append(label, pre);
+  }
+  const body = (issue.body || "").replace(/^#\s+[^\n]+\n+/, "");
+  article.append(renderMarkdown(body, state.source.repo));
+  return article;
+}
+
+function actions(state, issue) {
+  const row = document.createElement("div");
+  row.className = "actions";
+  const open = document.createElement("a");
+  open.className = "btn primary";
+  open.href = issue.html_url;
+  open.target = "_blank";
+  open.rel = "noopener noreferrer";
+  open.textContent = "Open on GitHub";
+  const fork = document.createElement("a");
+  fork.className = "btn";
+  fork.href = `https://github.com/${state.source.fork}`;
+  fork.target = "_blank";
+  fork.rel = "noopener noreferrer";
+  fork.textContent = state.source.fork;
+  row.append(open, fork);
+  return row;
 }
 
 function renderChooser(state) {
-  const wrap = state.root.firstElementChild;
-  wrap.__state = state;
-  const main = wrap.querySelector("main");
+  const main = state.root.querySelector("main");
   const box = document.createElement("div");
   box.className = "projects";
   const intro = document.createElement("div");
-  intro.append(kicker("Projects"), heading("What each repo has produced."), lead("Pick a project. A fork publishes a catalog.json and this shell embeds each artifact as its own type."));
-  if (!state.projects.length) intro.append(p("No projects are registered in projects.json yet."));
+  intro.append(el("div", "kicker", "Forks"), el("h2", "title", "Issues from the fork."), note("Each project names a fork. The page reads that fork's issues from GitHub."));
   main.replaceChildren(intro, box);
   for (const project of state.projects) {
     const button = document.createElement("button");
-    button.className = "project";
     button.type = "button";
-    const k = kicker(project.id);
-    const h = document.createElement("h3");
-    h.textContent = project.title;
-    const s = document.createElement("p");
-    s.className = "muted";
-    s.textContent = project.summary || "";
-    button.append(k, h, s);
+    button.className = "project";
+    button.append(el("div", "kicker", project.repo), el("h3", "", project.title));
     button.onclick = async () => {
-      const next = new URL(location.href);
-      next.searchParams.set("project", project.id);
-      next.searchParams.delete("catalog");
-      history.replaceState(null, "", next);
-      await openCatalog(state, new URL(project.catalog, VIEWER_BASE));
+      try {
+        await openRepo(state, project);
+      } catch (err) {
+        main.replaceChildren(note(err.message));
+      }
     };
     box.append(button);
   }
 }
 
-function roadmap(state) {
-  const art = artifact(state);
-  const box = document.createElement("article");
-  if (!art) {
-    box.append(p("This catalog has no artifacts."));
-    return box;
-  }
-  const project = state.catalog.project || {};
-  box.append(kicker(`${project.title || project.id || "Project"} · ${art.kicker || art.kind}`));
-  const h = heading(art.headline || art.title);
-  box.append(h);
-  const status = document.createElement("p");
-  const pill = document.createElement("span");
-  pill.className = `status ${art.status || ""}`;
-  pill.textContent = art.status || art.kind;
-  status.append(pill, " ");
-  if (art.summary) status.append(document.createTextNode(art.summary));
-  box.append(status);
-  if (art.progress) box.append(metrics(art.progress));
-  if (art.coverage?.length) box.append(bars(art.coverage));
-  if (art.decision) {
-    const d = document.createElement("p");
-    d.className = "decision";
-    const b = document.createElement("b");
-    b.textContent = "Decision in force. ";
-    d.append(b, document.createTextNode(art.decision));
-    box.append(d);
-  }
-  box.append(actions(state, art, project));
-  if (art.steps?.length) {
-    const h2 = document.createElement("h2");
-    h2.style.fontSize = "1.15rem";
-    h2.textContent = "Follow the packages";
-    box.append(h2, steps(state, art));
-  }
-  const frame = preview(state, art);
-  if (frame) box.append(frame);
-  if (art.gaps?.length) {
-    const g = document.createElement("p");
-    g.className = "gap muted";
-    g.textContent = `Still missing beside the atlas: ${art.gaps.join(", ")}.`;
-    box.append(g);
-  }
-  return box;
-}
-
-function pieces(state) {
-  const box = document.createElement("div");
-  box.append(kicker("Pieces"), heading("Every artifact in this catalog."));
-  const grid = document.createElement("div");
-  grid.className = "grid";
-  for (const art of state.catalog.artifacts || []) {
-    const card = document.createElement("button");
-    card.className = "card";
-    card.type = "button";
-    card.dataset.artifact = art.id;
-    const thumb = preview(state, art, 160);
-    const meta = document.createElement("div");
-    meta.className = "meta";
-    const strong = document.createElement("strong");
-    strong.textContent = art.title;
-    meta.append(strong, document.createTextNode(`${art.kind} · ${art.embed}`));
-    if (thumb) card.append(thumb);
-    card.append(meta);
-    grid.append(card);
-  }
-  const downloads = (state.catalog.artifacts || []).flatMap((a) => a.downloads || []);
-  if (downloads.length) {
-    const list = document.createElement("div");
-    list.className = "actions";
-    for (const file of downloads) {
-      const a = document.createElement("a");
-      a.className = "btn";
-      a.href = resolve(state, file.href);
-      a.textContent = file.label;
-      list.append(a);
+function roadmapBlock(body) {
+  const lines = body.split("\n");
+  let inSection = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (/^##\s+proposed implementation order/i.test(lines[i])) {
+      inSection = true;
+      continue;
     }
-    box.append(grid, list);
-  } else box.append(grid);
-  return box;
-}
-
-function compare(state) {
-  const box = document.createElement("div");
-  const images = (state.catalog.artifacts || []).filter((a) => a.embed === "image");
-  box.append(kicker("Compare"), heading("Two stills, side by side."));
-  if (images.length < 2) {
-    box.append(p("This catalog has no image pair yet. Stills from a lane such as cardtwin, charizard, or a dream-loop capture show up here when their embed is image."));
-    return box;
+    if (!inSection) continue;
+    if (lines[i].startsWith("## ")) return "";
+    if (lines[i].startsWith("```")) {
+      const buf = [];
+      i += 1;
+      while (i < lines.length && !lines[i].startsWith("```")) buf.push(lines[i++]);
+      return buf.join("\n").trim();
+    }
   }
-  const grid = document.createElement("div");
-  grid.className = "compare";
-  grid.append(pane(state, images, 0), pane(state, images, Math.min(1, images.length - 1)));
-  box.append(grid);
-  return box;
+  return "";
 }
 
-function pane(state, images, index) {
-  const col = document.createElement("div");
-  const select = document.createElement("select");
-  images.forEach((art, i) => {
-    const opt = document.createElement("option");
-    opt.value = art.id;
-    opt.textContent = art.title;
-    if (i === index) opt.selected = true;
-    select.append(opt);
+function renderMarkdown(markdown, repo) {
+  const root = document.createElement("div");
+  root.className = "prose";
+  const lines = markdown.replaceAll("\r\n", "\n").split("\n");
+  const ids = new Set();
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (line.trim() === "") {
+      i += 1;
+      continue;
+    }
+    if (line.startsWith("```")) {
+      const buf = [];
+      i += 1;
+      while (i < lines.length && !lines[i].startsWith("```")) buf.push(lines[i++]);
+      i += 1;
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = buf.join("\n");
+      pre.append(code);
+      root.append(pre);
+      continue;
+    }
+    if (/^#{1,4}\s+/.test(line)) {
+      const level = line.match(/^#+/)[0].length;
+      const text = line.replace(/^#{1,4}\s+/, "");
+      const heading = document.createElement(`h${Math.min(level + 1, 4)}`);
+      heading.id = uniqueId(ids, text);
+      appendInline(heading, text, repo);
+      root.append(heading);
+      i += 1;
+      continue;
+    }
+    if (line.startsWith("|")) {
+      const rows = [];
+      while (i < lines.length && lines[i].startsWith("|")) rows.push(lines[i++]);
+      root.append(renderTable(rows, repo));
+      continue;
+    }
+    if (/^\s*([-*]|\d+\.)\s+/.test(line)) {
+      const list = document.createElement(line.trim().match(/^\d+\./) ? "ol" : "ul");
+      while (i < lines.length && /^\s*([-*]|\d+\.)\s+/.test(lines[i])) {
+        const item = document.createElement("li");
+        appendInline(item, lines[i].replace(/^\s*([-*]|\d+\.)\s+/, ""), repo);
+        list.append(item);
+        i += 1;
+      }
+      root.append(list);
+      continue;
+    }
+    if (line.startsWith(">")) {
+      const buf = [];
+      while (i < lines.length && lines[i].startsWith(">")) {
+        buf.push(lines[i].replace(/^>\s?/, ""));
+        i += 1;
+      }
+      const quote = document.createElement("blockquote");
+      appendInline(quote, buf.join(" "), repo);
+      root.append(quote);
+      continue;
+    }
+    if (/^(-{3,}|\*{3,})$/.test(line.trim())) {
+      root.append(document.createElement("hr"));
+      i += 1;
+      continue;
+    }
+    const buf = [line];
+    i += 1;
+    while (i < lines.length && lines[i].trim() && !special(lines[i])) buf.push(lines[i++]);
+    const paragraph = document.createElement("p");
+    appendInline(paragraph, buf.join(" "), repo);
+    root.append(paragraph);
+  }
+  return root;
+}
+
+function special(line) {
+  return line.startsWith("```") || /^#{1,4}\s+/.test(line) || line.startsWith("|") || /^\s*([-*]|\d+\.)\s+/.test(line) || line.startsWith(">") || /^(-{3,}|\*{3,})$/.test(line.trim());
+}
+
+function renderTable(rows, repo) {
+  const table = document.createElement("table");
+  const keep = rows.filter((row) => !/^[\s|:-]+$/.test(row));
+  if (!keep.length) return table;
+  const head = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  for (const cell of splitRow(keep[0])) {
+    const th = document.createElement("th");
+    appendInline(th, cell, repo);
+    headRow.append(th);
+  }
+  head.append(headRow);
+  table.append(head);
+  const body = document.createElement("tbody");
+  for (const row of keep.slice(1)) {
+    const tr = document.createElement("tr");
+    for (const cell of splitRow(row)) {
+      const td = document.createElement("td");
+      appendInline(td, cell, repo);
+      tr.append(td);
+    }
+    body.append(tr);
+  }
+  table.append(body);
+  return table;
+}
+
+function splitRow(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function appendInline(parent, text, repo) {
+  const re = /(`[^`\n]+`)|(!\[[^\]]*\]\([^)\s]+\))|(\[[^\]]+\]\([^)\s]+\))|(\*\*[^*]+\*\*)|(\*[^*\n]+\*)|(#\d+)/g;
+  let last = 0;
+  for (const match of text.matchAll(re)) {
+    if (match.index > last) parent.append(document.createTextNode(text.slice(last, match.index)));
+    const token = match[0];
+    if (token.startsWith("`")) {
+      const code = document.createElement("code");
+      code.textContent = token.slice(1, -1);
+      parent.append(code);
+    } else if (token.startsWith("!")) {
+      const imgMatch = token.match(/^!\[([^\]]*)\]\(([^)\s]+)\)$/);
+      if (imgMatch && imgMatch[2].startsWith("https://")) {
+        const img = document.createElement("img");
+        img.alt = imgMatch[1];
+        img.src = imgMatch[2];
+        parent.append(img);
+      } else parent.append(document.createTextNode(token));
+    } else if (token.startsWith("[")) {
+      const linkMatch = token.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+      if (linkMatch && safeUrl(linkMatch[2])) parent.append(anchor(linkMatch[1], linkMatch[2]));
+      else parent.append(document.createTextNode(token));
+    } else if (token.startsWith("**")) {
+      const strong = document.createElement("strong");
+      strong.textContent = token.slice(2, -2);
+      parent.append(strong);
+    } else if (token.startsWith("*")) {
+      const em = document.createElement("em");
+      em.textContent = token.slice(1, -1);
+      parent.append(em);
+    } else {
+      parent.append(anchor(token, `https://github.com/${repo}/issues/${token.slice(1)}`));
+    }
+    last = match.index + token.length;
+  }
+  if (last < text.length) parent.append(document.createTextNode(text.slice(last)));
+}
+
+function anchor(text, href) {
+  const link = document.createElement("a");
+  link.href = href;
+  link.textContent = text;
+  if (/^https?:/.test(href)) {
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+  }
+  return link;
+}
+
+function safeUrl(url) {
+  return /^(https?:\/\/|mailto:|#|\/)/.test(url) && !url.toLowerCase().startsWith("javascript:");
+}
+
+function uniqueId(ids, text) {
+  const base = text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "section";
+  let id = base;
+  let n = 2;
+  while (ids.has(id)) id = `${base}-${n++}`;
+  ids.add(id);
+  return id;
+}
+
+function remember(state) {
+  const next = new URL(location.href);
+  next.searchParams.set("project", state.project.id);
+  next.searchParams.delete("repo");
+  if (state.issueNumber) next.searchParams.set("issue", String(state.issueNumber));
+  history.replaceState(null, "", next);
+}
+
+async function github(path) {
+  const response = await fetch(`${GITHUB}${path}`, {
+    headers: { Accept: "application/vnd.github+json" },
   });
-  const slot = document.createElement("div");
-  const draw = () => {
-    const art = images.find((a) => a.id === select.value);
-    slot.replaceChildren(preview(state, art, 420));
-  };
-  select.onchange = draw;
-  draw();
-  col.append(select, slot);
-  return col;
-}
-
-function metrics(progress) {
-  const row = document.createElement("div");
-  row.className = "metrics";
-  const items = [
-    [progress.requirements_mapped, "requirements mapped"],
-    [progress.acceptance_requalified, "acceptance requalified"],
-    [progress.packages_proposed, "packages proposed"],
-    [progress.packages_accepted, "packages accepted"],
-  ];
-  for (const [value, label] of items) {
-    if (value == null) continue;
-    const cell = document.createElement("div");
-    cell.className = "metric";
-    const b = document.createElement("b");
-    b.textContent = String(value);
-    const s = document.createElement("span");
-    s.textContent = label;
-    cell.append(b, s);
-    row.append(cell);
+  if (response.status === 403 || response.status === 429) {
+    throw new Error("GitHub rate limit reached for this browser. The issues are public; reload after the limit resets.");
   }
-  return row;
-}
-
-function bars(coverage) {
-  const total = coverage.reduce((sum, item) => sum + item.count, 0) || 1;
-  const box = document.createElement("div");
-  box.className = "coverage";
-  for (const item of coverage) {
-    const row = document.createElement("div");
-    row.className = "bar";
-    const label = document.createElement("span");
-    label.textContent = item.label;
-    const count = document.createElement("b");
-    count.textContent = String(item.count);
-    const track = document.createElement("div");
-    track.className = "track";
-    const fill = document.createElement("i");
-    fill.style.width = `${Math.round((item.count / total) * 100)}%`;
-    track.append(fill);
-    row.append(label, count, track);
-    box.append(row);
-  }
-  return box;
-}
-
-function steps(state, art) {
-  const list = document.createElement("div");
-  list.className = "steps";
-  for (const step of art.steps) {
-    const a = document.createElement("a");
-    a.className = "step";
-    a.href = resolve(state, step.href || art.href);
-    const id = document.createElement("div");
-    id.className = "id";
-    id.textContent = step.id;
-    const body = document.createElement("div");
-    const h = document.createElement("h3");
-    h.textContent = step.title;
-    const owner = document.createElement("div");
-    owner.className = "owner";
-    owner.textContent = `${step.status || "proposed"}${step.owner ? " · " + step.owner : ""}`;
-    body.append(h, owner);
-    if (step.summary) {
-      const p = document.createElement("p");
-      p.textContent = step.summary;
-      body.append(p);
-    }
-    a.append(id, body);
-    list.append(a);
-  }
-  return list;
-}
-
-function actions(state, art, project) {
-  const row = document.createElement("div");
-  row.className = "actions";
-  const open = document.createElement("a");
-  open.className = "btn primary";
-  open.href = resolve(state, art.href);
-  open.textContent = "Open the atlas";
-  row.append(open);
-  if (project.issue) row.append(link(project.issue, "Issue"));
-  if (art.commit_url) row.append(link(art.commit_url, `Commit ${(art.commit || "").slice(0, 7)}`));
-  if (project.repo) row.append(link(project.repo, "Fork"));
-  return row;
-}
-
-function preview(state, art, height) {
-  if (!art || art.embed === "none") return null;
-  const url = resolve(state, art.href);
-  if (art.embed === "image") {
-    const img = document.createElement("img");
-    img.src = url;
-    img.alt = art.title;
-    if (height) img.style.height = `${height}px`;
-    return img;
-  }
-  if (art.embed === "video") {
-    const video = document.createElement("video");
-    video.src = url;
-    video.controls = true;
-    if (height) video.style.height = `${height}px`;
-    return video;
-  }
-  if (art.embed === "model") {
-    const model = document.createElement("model-viewer");
-    model.setAttribute("src", url);
-    model.setAttribute("camera-controls", "");
-    model.style.height = `${height || 420}px`;
-    model.style.width = "100%";
-    return model;
-  }
-  const frame = document.createElement("iframe");
-  frame.className = "frame";
-  frame.src = url;
-  frame.title = art.title;
-  if (height) frame.style.height = `${height}px`;
-  return frame;
-}
-
-function artifact(state) {
-  const list = state.catalog?.artifacts || [];
-  return list.find((a) => a.id === state.artifactId) || list[0] || null;
-}
-
-function resolve(state, href) {
-  if (!href) return "";
-  return new URL(href, state.catalogUrl).href;
+  if (!response.ok) throw new Error(`GitHub returned ${response.status} for ${path.split("?")[0]}`);
+  return response.json();
 }
 
 async function loadJson(url) {
   const response = await fetch(url);
-  if (!response.ok) throw new Error(`${response.status} ${url.pathname || url}`);
+  if (!response.ok) throw new Error(`${response.status} loading ${url.pathname}`);
   return response.json();
 }
 
-function kicker(text) {
-  const n = document.createElement("div");
-  n.className = "kicker";
-  n.textContent = text;
-  return n;
+function when(iso) {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
-function heading(text) {
-  const n = document.createElement("h2");
-  n.textContent = text;
-  return n;
+
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  node.textContent = text;
+  return node;
 }
-function lead(text) {
-  const n = document.createElement("p");
-  n.className = "lead";
-  n.textContent = text;
-  return n;
-}
-function p(text) {
-  const n = document.createElement("p");
-  n.className = "muted";
-  n.textContent = text;
-  return n;
-}
-function link(href, text) {
-  const a = document.createElement("a");
-  a.className = "btn";
-  a.href = href;
-  a.textContent = text;
-  return a;
+
+function note(text) {
+  return el("p", "muted", text);
 }
